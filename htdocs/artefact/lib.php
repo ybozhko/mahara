@@ -26,7 +26,14 @@ abstract class PluginArtefact extends Plugin {
      */
     public static abstract function get_artefact_types();
 
-    
+    /**
+     * This function returns a list of classnames => categories
+     * of artefact types that can be shared.
+     * @abstract
+     * @return array
+     */
+    public static abstract function get_shareable_types();
+
     /**
     * This function returns a list of classnames
     * of block types this plugin provides
@@ -191,6 +198,7 @@ abstract class ArtefactType {
     protected $childrenmetadata;
     protected $parentinstance;
     protected $parentmetadata;
+    protected $accesslist;
 
     /** 
      * Constructer. 
@@ -240,6 +248,11 @@ abstract class ArtefactType {
             $this->tags = ArtefactType::artefact_get_tags($this->id);
         }
 
+        // Load access list.
+        if ($this->id) {
+            $this->accesslist = ArtefactType::artefact_get_accesslist($this->id);
+        }
+
         // load group permissions
         if ($this->group && !is_array($this->rolepermissions)) {
             $this->load_rolepermissions();
@@ -287,6 +300,155 @@ abstract class ArtefactType {
         return get_column('artefact', 'id',
                         'owner', $values['owner'],
                         'artefacttype', $values['type']);
+    }
+
+    /**
+     * Returns existing artefacts of a certain type (optionally for a user)
+     *
+     * @param string $type Type of an artefact (defaults to all artefacts)
+     * @param integer $userid User ID (defaults to current user)
+     * @param integer $offset
+     * @param integer $limit
+     * @return array Artefacts that can be used for building pagination
+     */
+    public static function get_artefacts($type, $userid, $ownerid = null, $offset = 0, $limit = 20) {
+        $artefactAccessConditions = static::get_artefact_access_conditions();
+
+        // Getting subqueries.
+        $subqueries = array();
+
+        if (!empty($ownerid)) {
+            if ($ownerid != $userid) {
+                // Artefacts of another user that I can see.
+                foreach ($artefactAccessConditions as $key => $artefactAccessCondition) {
+                    $subqueries['artefact_' . $key] = array(
+                                'sql' => "SELECT artefact.id
+                                    FROM {artefact} artefact
+                                    {$artefactAccessCondition['sql']}
+                                    WHERE artefact.owner = ? ",
+                                'params' => array());
+                    foreach($artefactAccessCondition['params'] as $accessconditionparam) {
+                        $subqueries['artefact_' . $key]['params'][] = ${$accessconditionparam};
+                    }
+                    $subqueries['artefact_' . $key]['params'][] = $ownerid;
+                }
+            }
+            else {
+                // Artefacts that I own.
+                $subqueries['mine'] = array(
+                    'sql' => "SELECT artefact.id
+                        FROM {artefact} artefact
+                       WHERE artefact.owner = ?",
+                    'params' => array($userid));
+            }
+        }
+        else {
+            // Artefacts that I own.
+            $subqueries['mine'] = array(
+                    'sql' => "SELECT artefact.id
+                        FROM {artefact} artefact
+                       WHERE artefact.owner = ?",
+                    'params' => array($userid));
+
+            // Artefacts and that I can see.
+            foreach ($artefactAccessConditions as $key => $artefactAccessCondition) {
+                $subqueries['artefact_' . $key] = array(
+                            'sql' => "SELECT artefact.id
+                                FROM {artefact} artefact
+                                {$artefactAccessCondition['sql']}",
+                            'params' => array());
+                foreach($artefactAccessCondition['params'] as $accessconditionparam) {
+                    $subqueries['artefact_' . $key]['params'][] = ${$accessconditionparam};
+                }
+            }
+        }
+
+        // Concatenate all subqueries together with UNION and put all params into a single array (in order).
+        $conditionssql = "";
+        $conditionsparams = array();
+        foreach ($subqueries as $subquery) {
+            if ($conditionssql != "") {
+                $conditionssql .= " UNION ALL ";
+            }
+            $conditionssql .= $subquery['sql'];
+            foreach ($subquery['params'] as $param) {
+                $conditionsparams[] = $param;
+            }
+        }
+
+        // Get all shareable artefact types.
+        $shareable = array();
+        $insqltypes = "";
+        if (!empty($type)) {
+            $shareable = get_records_sql_menu("SELECT name FROM {artefact_installed_type} WHERE shareable = ? ", array($type));
+            if (empty($shareable)){
+                return array('count' => 0, 'data' => array(), 'offset' => $offset, 'limit'  => $limit);
+            }
+            $insqltypes = " artefact.artefacttype IN ('" . implode("','", $shareable) . "')";
+        }
+        else {
+            $shareable = get_records_sql_menu("SELECT name FROM {artefact_installed_type} WHERE shareable IS NOT NULL ", array());
+            $insqltypes = " artefact.artefacttype IN ('" . implode("','", $shareable) . "')";
+        }
+
+        $sql = "SELECT DISTINCT artefact.*
+            FROM {artefact} artefact
+            JOIN ({$conditionssql}) visibleids
+                ON artefact.id = visibleids.id
+            WHERE {$insqltypes}
+            ORDER BY artefact.mtime DESC ";
+
+        $artefacts = get_records_sql_array($sql, $conditionsparams, $offset, $limit);
+        $count = count_records_sql("SELECT COUNT(DISTINCT artefact.id)
+                    FROM {artefact} artefact
+                    JOIN ({$conditionssql}) visibleids
+                        ON artefact.id = visibleids.id
+                    WHERE {$insqltypes}", $conditionsparams);
+
+        if ($artefacts) {
+            foreach ($artefacts as $key => $value) {
+                $artefact = artefact_instance_from_id($value->id);
+                $artefacts[$key]->html = $artefact->render_item();
+            }
+        }
+
+        $result = array(
+            'count'  => $count,
+            'data'   => $artefacts,
+            'offset' => $offset,
+            'limit'  => $limit,
+        );
+        return $result;
+    }
+
+    /**
+     * Builds the artefact list table
+     *
+     * @param artefacts (reference)
+     */
+    public static function build_artefacts_list_html(&$artefacts) {
+        $smarty = smarty_core();
+        $smarty->assign_by_ref('artefacts', $artefacts);
+        $artefacts['tablerows'] = $smarty->fetch('artefact/artefactlist.tpl');
+        $pagination = build_pagination(array(
+            'id' => 'artefactlist_pagination',
+            'class' => 'center',
+            'url' => get_config('wwwroot') . 'artefact/index.php',
+            'jsonscript' => 'artefact/artefacts.json.php',
+            'datatable' => 'artefactlist',
+            'count' => $artefacts['count'],
+            'limit' => $artefacts['limit'],
+            'offset' => $artefacts['offset'],
+            'firsttext' => '',
+            'previoustext' => '',
+            'nexttext' => '',
+            'lasttext' => '',
+            'numbersincludefirstlast' => true,
+            'resultcounttextsingular' => get_string('Artefact', 'mahara'),
+            'resultcounttextplural' => get_string('Artefacts', 'mahara'),
+        ));
+        $artefacts['pagination'] = $pagination['html'];
+        $artefacts['pagination_js'] = $pagination['javascript'];
     }
 
     /**
@@ -525,6 +687,22 @@ abstract class ArtefactType {
             }
         }
 
+        // Save sharing for this artefact.
+        delete_records('artefact_access', 'artefact', $this->id);
+        if (is_array($this->accesslist) && !empty($this->accesslist)) {
+            foreach ($this->accesslist as $access) {
+                list($type, $value) = explode('|', $access);
+                insert_record(
+                    'artefact_access',
+                    (object) array(
+                        'artefact' => $this->id,
+                        "{$type}"  => $value,
+                        'ctime'    => db_format_timestamp(time()),
+                    )
+                );
+            }
+        }
+
         artefact_watchlist_notification(array($this->id));
 
         handle_event('saveartefact', $this);
@@ -717,6 +895,7 @@ abstract class ArtefactType {
         }
         delete_records_select('view_artefact', "artefact IN $idstr");
         delete_records_select('artefact_tag', "artefact IN $idstr");
+        delete_records_select('artefact_access', "artefact IN $idstr");
         delete_records_select('artefact_access_role', "artefact IN $idstr");
         delete_records_select('artefact_access_usr', "artefact IN $idstr");
         execute_sql("UPDATE {usr} SET profileicon = NULL WHERE profileicon IN $idstr");
@@ -790,6 +969,23 @@ abstract class ArtefactType {
         );
     }
 
+    /**
+     * A dummy method, giving graceful output, if this method is not implemented in the relevant child class.
+     */
+    public function render_item() {
+        $icon = call_static_method(generate_artefact_class_name($this->get('artefacttype')), 'get_icon', array('id' => $this->get('id')));
+
+        $smarty = smarty_core();
+        $smarty->assign('title', $this->get('title'));
+        $smarty->assign('id', $this->get('id'));
+        $smarty->assign('type', $this->get('artefacttype'));
+        $smarty->assign('owner', get_user($this->get('author')));
+        $smarty->assign('description', $this->get('description'));
+        $smarty->assign('icon', $icon);
+        $smarty->assign('time', $this->get('mtime'));
+
+        return $smarty->fetch('artefact/item.tpl');
+    }
 
     /**
      * Returns a URL for an icon for the appropriate artefact
@@ -822,6 +1018,14 @@ abstract class ArtefactType {
      * @abstract
      */
     public static abstract function is_singular();
+
+    /**
+     * Checks if artefact is public.
+     *
+     */
+    public function is_public() {
+        return record_exists('artefact_access', 'artefact', $this->id, 'accesstype', 'public');
+    }
 
     /**
      * Returns a list of key => value pairs where the key is either '_default'
@@ -1296,6 +1500,68 @@ abstract class ArtefactType {
     }
 
     /**
+     * Return an array of default accesstypes
+     *
+     * @return array
+     */
+    public static function default_accesstypes() {
+        $accesstype = array();
+        $accesstype[] = array('id' => 'accesstype|public', 'name' => get_string('public', 'view'));
+        $accesstype[] = array('id' => 'accesstype|loggedin', 'name' => get_string('loggedin', 'view'));
+        $accesstype[] = array('id' => 'accesstype|friends', 'name' => get_string('myfriends'));
+        $accesstype[] = array('id' => 'accesstype|groups', 'name' => get_string('mygroups'));
+
+        return $accesstype;
+    }
+
+    /**
+     * Return access list associated with this artefact
+     *
+     * @param int  ID of the artefact
+     *
+     * @return array of strings
+     */
+    public static function artefact_get_accesslist($id) {
+        if (empty($id)) {
+            return array();
+        }
+
+        $accesstypes = self::default_accesstypes();
+
+        $records = get_records_array('artefact_access', 'artefact', $id);
+        if (!empty($records)) {
+            $accesslist = array();
+            foreach ($records as $record) {
+                if (!empty($record->accesstype)) {
+                    $search = $record->accesstype;
+                    $accesslist[] = reset(array_filter($accesstypes, function($el) use ($search) {
+                        return (strpos($el['id'], $search) !== false); }));
+                }
+                else if (!empty($record->group)) {
+                    $accesslist[] = array('id' => 'group|' . $record->group,
+                                    'name' => get_field('group', 'name', 'id', $record->group)
+                    );
+                }
+                else if (!empty($record->usr)) {
+                    $user = get_record('usr', 'id', $record->usr);
+                    $accesslist[] = array('id' => 'usr|' . $record->usr,
+                                    'name' => display_name($user)
+                    );
+                }
+                else if (!empty($record->institution)) {
+                    $accesslist[] = array('id' => 'institution|' . $record->institution,
+                                    'name' => get_field('institution', 'displayname', 'name', $record->institution)
+                                    );
+                }
+            }
+
+            return $accesslist;
+        }
+
+        return array();
+    }
+
+    /**
      * Checks to see if artefact type is allowed to be part of the progress bar.
      * By default all artefacts are included in progress bar. To remove an artefact
      * from being a progress bar option have your artefacttype return false for this.
@@ -1331,6 +1597,92 @@ abstract class ArtefactType {
      */
     public static function get_title_progressbar() {
         return false;
+    }
+
+    /**
+     * Get an array of sql snipets that restrict artefact records to only those that the viewer has access.
+     * NOTE: Params must contain only 'owner' or 'viewer'.
+     *
+     * @param bool $areknownfriends true if we know beforehand that the viewer and owner are friends
+     * @return array of access condition sql snipet and param list pairs
+     */
+    public static function get_artefact_access_conditions() {
+        $artefactAccessConditions = array();
+
+        // Available to public.
+        $artefactAccessConditions['public'] = array(
+            'sql' => "JOIN {artefact_access} artefact_access
+            ON artefact.id = artefact_access.artefact
+           AND artefact_access.accesstype = 'public'",
+            'params' => array());
+
+        // Available to logged in users.
+        $artefactAccessConditions['loggedin'] = array(
+            'sql' => "JOIN {artefact_access} artefact_access
+            ON artefact.id = artefact_access.artefact
+           AND artefact_access.accesstype = 'loggedin'",
+            'params' => array());
+
+        // Available to friends usr1->usr2.
+        $artefactAccessConditions['friend12'] = array(
+            'sql' => "JOIN {artefact_access} artefact_access
+            ON artefact.id = artefact_access.artefact
+           AND artefact_access.accesstype = 'friends'
+          JOIN {usr_friend} artefactfriendaccess
+            ON artefact.owner = artefactfriendaccess.usr1
+           AND artefactfriendaccess.usr2 = ?",
+            'params' => array('userid'));
+
+        // Available to friends usr2->usr1.
+        $artefactAccessConditions['friend21'] = array(
+            'sql' => "JOIN {artefact_access} artefact_access
+            ON artefact.id = artefact_access.artefact
+           AND artefact_access.accesstype = 'friends'
+          JOIN {usr_friend} artefactfriendaccess
+            ON artefact.owner = artefactfriendaccess.usr2
+           AND artefactfriendaccess.usr1 = ?",
+            'params' => array('userid'));
+
+        // Available to specific user.
+        $artefactAccessConditions['usr'] = array(
+            'sql' => "JOIN {artefact_access} artefact_access
+            ON artefact.id = artefact_access.artefact
+           AND (artefact_access.usr = ?)",
+            'params' => array('userid'));
+
+        // Available to a group the user is in.
+        $artefactAccessConditions['group'] = array(
+            'sql' => "JOIN {artefact_access} artefact_access
+            ON artefact.id = artefact_access.artefact
+          JOIN {group_member} group_member
+            ON artefact_access.group = group_member.group
+           AND group_member.member = ?",
+            'params' => array('userid'));
+
+        // Available to my groups.
+        $artefactAccessConditions['mygroups'] = array(
+            'sql' => "JOIN {artefact_access} artefact_access
+            ON artefact.id = artefact_access.artefact
+           AND artefact_access.accesstype = 'groups'
+          JOIN {group_member} group_member_owner
+            ON artefact.owner = group_member_owner.member
+          JOIN {group_member} group_member_viewer
+            ON group_member_owner.group = group_member_viewer.group
+           AND group_member_viewer.member = ?",
+            'params' => array('userid'));
+
+        // Available to an institution the user is in.
+        $artefactAccessConditions['institution'] = array(
+            'sql' => "JOIN {artefact_access} artefact_access
+            ON artefact.id = artefact_access.artefact
+          JOIN {usr_institution} usr_institution
+            ON artefact_access.institution = usr_institution.institution
+           AND usr_institution.usr = ?",
+            'params' => array('userid'));
+
+        // TODO: Add shared via pages condition.
+
+        return $artefactAccessConditions;
     }
 }
 
@@ -2010,4 +2362,19 @@ function artefact_get_progressbar_metaartefacts($plugin, $onlythese = false) {
         }
     }
     return $results;
+}
+
+/**
+ * Given an artefact, and a user id (defaults to currently logged in user if not
+ * specified) will return wether this user is allowed to look at this artefact.
+ *
+ * @param mixed $artefact      artefactid or Artefacts to check
+ * @param integer $userid      User trying to look at the view (defaults to
+ * currently logged in user, or null if user isn't logged in)
+ *
+ * @returns boolean Wether the specified user can look at the specified artefact.
+ */
+function can_view_artefact($artefact, $userid = null) {
+
+    return true;
 }

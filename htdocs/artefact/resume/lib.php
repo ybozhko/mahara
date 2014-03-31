@@ -33,6 +33,10 @@ class PluginArtefactResume extends PluginArtefact {
         );
     }
 
+    public static function get_shareable_types() {
+        return array();
+    }
+
     public static function get_block_types() {
         return array();
     }

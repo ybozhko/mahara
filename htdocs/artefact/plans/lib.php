@@ -20,6 +20,13 @@ class PluginArtefactPlans extends PluginArtefact {
         );
     }
 
+    public static function get_shareable_types() {
+        return array(
+            'task' => 'plan',
+            'plan' => 'plan',
+        );
+    }
+
     public static function get_block_types() {
         return array();
     }
@@ -183,6 +190,7 @@ class ArtefactTypePlan extends ArtefactType {
             $artefact->set('licensorurl', $values['licensorurl']);
         }
         $artefact->set('tags', $values['tags']);
+        $artefact->set('accesslist', $values['accesslist']);
         $artefact->commit();
 
         $SESSION->add_ok_msg(get_string('plansavedsuccessfully', 'artefact.plans'));
@@ -225,6 +233,9 @@ class ArtefactTypePlan extends ArtefactType {
     *
     */
     public static function get_planform_elements($plan) {
+        global $THEME;
+        $artefactname = get_string('plan', 'artefact.plans');
+
         $elements = array(
             'title' => array(
                 'type' => 'text',
@@ -247,6 +258,13 @@ class ArtefactTypePlan extends ArtefactType {
                 'type'        => 'tags',
                 'title'       => get_string('tags'),
                 'description' => get_string('tagsdescprofile'),
+            ),
+            'accesslist'  => array(
+                'type'         => 'autocomplete',
+                'title'        => get_string('sharewith'),
+                'defaultvalue' => null,
+                'description'  => get_string('sharewithdesc', 'mahara', $artefactname),
+                'ajax'         => 'artefact/access.json.php'
             ),
         );
 
@@ -467,6 +485,7 @@ class ArtefactTypeTask extends ArtefactType {
     *
     */
     public static function get_taskform_elements($parent, $task=null) {
+        $artefactname = get_string('task', 'artefact.plans');
         $elements = array(
             'title' => array(
                 'type' => 'text',
@@ -503,6 +522,13 @@ class ArtefactTypeTask extends ArtefactType {
                 'type'        => 'tags',
                 'title'       => get_string('tags'),
                 'description' => get_string('tagsdescprofile'),
+            ),
+            'accesslist'  => array(
+                'type'         => 'autocomplete',
+                'title'        => get_string('sharewith'),
+                'defaultvalue' => null,
+                'description'  => get_string('sharewithdesc', 'mahara', $artefactname),
+                'ajax'         => 'artefact/access.json.php'
             ),
             'completed' => array(
                 'type' => 'checkbox',
@@ -568,6 +594,7 @@ class ArtefactTypeTask extends ArtefactType {
             $artefact->set('licensorurl', $values['licensorurl']);
         }
         $artefact->set('tags', $values['tags']);
+        $artefact->set('accesslist', $values['accesslist']);
         $artefact->commit();
 
         $SESSION->add_ok_msg(get_string('plansavedsuccessfully', 'artefact.plans'));

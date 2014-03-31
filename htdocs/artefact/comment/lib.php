@@ -38,6 +38,10 @@ class PluginArtefactComment extends PluginArtefact {
         );
     }
 
+    public static function get_shareable_types() {
+        return array();
+    }
+
     public static function get_block_types() {
         return array();
     }
@@ -318,10 +322,17 @@ class ArtefactTypeComment extends ArtefactType {
      * @param  bool   $export          Determines if comments are fetched for html export purposes
      * @return object $result          Comments data object
      */
-    public static function get_comments($limit=10, $offset=0, $showcomment, &$view, &$artefact=null, $export=false) {
+    public static function get_comments($limit=10, $offset=0, $showcomment, &$view=null, &$artefact=null, $export=false) {
         global $USER;
         $userid = $USER->get('id');
-        $viewid = $view->get('id');
+
+        if (!empty($view)) {
+            $viewid = $view->get('id');
+        }
+        else {
+            $viewid = null;
+        }
+
         if (!empty($artefact)) {
             $canedit = $USER->can_edit_artefact($artefact);
             $owner = $artefact->get('owner');
@@ -350,7 +361,7 @@ class ArtefactTypeComment extends ArtefactType {
         if (!empty($artefactid)) {
             $where = 'c.onartefact = ' . (int)$artefactid;
         }
-        else {
+        else if (!empty($viewid)) {
             $where = 'c.onview = ' . (int)$viewid;
         }
         if (!$canedit) {
@@ -415,12 +426,14 @@ class ArtefactTypeComment extends ArtefactType {
         // check to see if the feedback is to be displayed in a block instance
         // or the base of the page
         $result->position = 'base';
-        $blocks = get_records_array('block_instance', 'view', $viewid);
-        if (!empty($blocks)) {
-            foreach ($blocks as $block) {
-                if ($block->blocktype == 'comment') {
-                    $result->position = 'blockinstance';
-                    break;
+        if (!empty($viewid)) {
+            $blocks = get_records_array('block_instance', 'view', $viewid);
+            if (!empty($blocks)) {
+                foreach ($blocks as $block) {
+                    if ($block->blocktype == 'comment') {
+                        $result->position = 'blockinstance';
+                        break;
+                    }
                 }
             }
         }

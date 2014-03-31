@@ -24,7 +24,18 @@ class PluginArtefactFile extends PluginArtefact {
             'audio',
         );
     }
-    
+
+    public static function get_shareable_types() {
+        return array(
+            'file' => 'file',
+            'folder' => 'file',
+            'image' => 'file',
+            'archive' => 'file',
+            'video' => 'file',
+            'audio' => 'file',
+        );
+    }
+
     public static function get_block_types() {
         return array('image');
     }
@@ -2059,6 +2070,15 @@ class ArtefactTypeImage extends ArtefactTypeFile {
             . get_string('Preview', 'artefact.file') . '</h4><a href="'
             . hsc($downloadpath) . '"><img src="' . hsc($downloadpath) . '&maxwidth=400&maxheight=180'
             . '" alt=""></a></div>' . $result['html'];
+        return $result;
+    }
+
+    /**
+     * A method, giving output to be used on artefacts index page.
+     */
+    public function render_item() {
+        $downloadpath = get_config('wwwroot') . 'artefact/file/download.php?file=' . $this->id;
+        $result = '<div><a href="'. hsc($downloadpath) . '"><img src="' . hsc($downloadpath) . '&maxwidth=400&maxheight=100" alt=""></a></div>';
         return $result;
     }
 

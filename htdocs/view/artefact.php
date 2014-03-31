@@ -20,8 +20,8 @@ require_once(get_config('libroot') . 'view.php');
 safe_require('artefact', 'comment');
 
 $artefactid = param_integer('artefact');
-$viewid     = param_integer('view');
-$blockid    = param_integer('block',null);
+$viewid     = param_integer('view', null);
+$blockid    = param_integer('block', null);
 $path       = param_variable('path', null);
 
 $view = new View($viewid);

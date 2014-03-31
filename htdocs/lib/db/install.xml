@@ -530,6 +530,25 @@
                 <KEY NAME="parentfk" TYPE="foreign" FIELDS="parent" REFTABLE="artefact" REFFIELDS="id" />
             </KEYS>
         </TABLE>
+        <TABLE NAME="artefact_access">
+            <FIELDS>
+                <FIELD NAME="artefact" TYPE="int" LENGTH="10" NOTNULL="true" />
+                <FIELD NAME="accesstype" TYPE="char" LENGTH="16" NOTNULL="false" ENUM="true" ENUMVALUES="'public', 'loggedin', 'friends', 'groups', 'objectionable'" />
+                <FIELD NAME="group" TYPE="int" LENGTH="10" NOTNULL="false" />
+                <FIELD NAME="usr" TYPE="int" LENGTH="10" NOTNULL="false" />
+                <FIELD NAME="institution" TYPE="char" LENGTH="255" NOTNULL="false" />
+                <FIELD NAME="ctime" TYPE="datetime" NOTNULL="true" />
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="artefactfk" TYPE="foreign" FIELDS="artefact" REFTABLE="artefact" REFFIELDS="id" />
+                <KEY NAME="groupfk" TYPE="foreign" FIELDS="group" REFTABLE="group" REFFIELDS="id" />
+                <KEY NAME="usrfk" TYPE="foreign" FIELDS="usr" REFTABLE="usr" REFFIELDS="id" />
+                <KEY NAME="institutionfk" TYPE="foreign" FIELDS="institution" REFTABLE="institution" REFFIELDS="name" />
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="accesstypeix" UNIQUE="false" FIELDS="accesstype"/>
+            </INDEXES>
+        </TABLE>
         <TABLE NAME="artefact_access_usr">
             <FIELDS>
                 <FIELD NAME="usr" TYPE="int" LENGTH="10" NOTNULL="true" />

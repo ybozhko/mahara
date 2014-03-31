@@ -1,6 +1,12 @@
 {foreach from=$posts item=post}
 <div class="post">
-    <h3 class="title"><a href="{$WWWROOT}view/artefact.php?artefact={$post->id}&view={$options.viewid}">{$post->title}</a></h3>
+    <h3 class="title">
+        {if $options.viewid}
+            <a href="{$WWWROOT}view/artefact.php?artefact={$post->id}&view={$options.viewid}">{$post->title}</a>
+        {else}
+            <a href="{$WWWROOT}artefact/artefact.php?artefact={$post->id}">{$post->title}</a>
+        {/if}
+    </h3>
     <div class="postdetails">{$post->postedby}</div>
     <div>{$post->description|clean_html|safe}
     {if $post->tags}

@@ -3249,5 +3249,50 @@ function xmldb_core_upgrade($oldversion=0) {
         change_field_default($table, $field);
     }
 
+    if ($oldversion < 2014040900) {
+        // Add column to artefact_installed_type table.
+        $table = new XMLDBTable('artefact_installed_type');
+        $field = new XMLDBField('shareable');
+        $field->setAttributes(XMLDB_TYPE_CHAR, 255, null, null);
+        if (!field_exists($table, $field)) {
+            add_field($table, $field);
+        }
+
+        // Populate this new field for existing artefacts.
+        if ($installed = plugins_installed('artefact')) {
+            foreach ($installed as $i) {
+                if (safe_require_plugin('artefact', $i->name)) {
+                    if ($types = call_static_method(generate_class_name('artefact', $i->name), 'get_shareable_types')) {
+                        foreach ($types as $type => $category) {
+                            set_field('artefact_installed_type', 'shareable', $category, 'name', $type);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add artefact_access table.
+        $accesstype = array('public', 'loggedin', 'friends', 'groups', 'objectionable');
+
+        $table = new XMLDBTable('artefact_access');
+        $table->addFieldInfo('id', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->addFieldInfo('artefact', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL);
+        $table->addFieldInfo('accesstype', XMLDB_TYPE_CHAR, 16, null, null, null, XMLDB_ENUM, $accesstype);
+        $table->addFieldInfo('group', XMLDB_TYPE_INTEGER, 10, null, null);
+        $table->addFieldInfo('usr', XMLDB_TYPE_INTEGER, 10, null, null);
+        $table->addFieldInfo('institution', XMLDB_TYPE_CHAR, 255, null, null);
+        $table->addFieldInfo('ctime', XMLDB_TYPE_DATETIME, null, null, XMLDB_NOTNULL);
+        $table->addKeyInfo('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->addKeyInfo('artefactfk', XMLDB_KEY_FOREIGN, array('artefact'), 'artefact', array('id'));
+        $table->addKeyInfo('groupfk', XMLDB_KEY_FOREIGN, array('group'), 'group', array('id'));
+        $table->addKeyInfo('usrfk', XMLDB_KEY_FOREIGN, array('usr'), 'usr', array('id'));
+        $table->addKeyInfo('institutionfk', XMLDB_KEY_FOREIGN, array('institution'), 'institution', array('name'));
+        $table->addIndexInfo('accesstypeix', XMLDB_INDEX_NOTUNIQUE, array('accesstype'));
+
+        if (!table_exists($table)) {
+            create_table($table);
+        }
+    }
+
     return $status;
 }

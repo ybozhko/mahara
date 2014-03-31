@@ -21,6 +21,8 @@ require_once('license.php');
 require_once('pieforms/pieform.php');
 safe_require('artefact', 'blog');
 
+$artefactname = get_string('blog', 'artefact.blog');
+
 $form = pieform(array(
     'name' => 'newblog',
     'method' => 'post',
@@ -52,6 +54,13 @@ $form = pieform(array(
             'title'       => get_string('tags'),
             'description' => get_string('tagsdescprofile'),
             'help'        => true,
+        ),
+        'accesslist'  => array(
+            'type'         => 'autocomplete',
+            'title'        => get_string('sharewith'),
+            'defaultvalue' => null,
+            'description'  => get_string('sharewithdesc', 'mahara', $artefactname),
+            'ajax'         => 'artefact/access.json.php'
         ),
         'license' => license_form_el_basic(null),
         'licensing_advanced' => license_form_el_advanced(null),

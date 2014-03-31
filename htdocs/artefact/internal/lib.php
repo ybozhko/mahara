@@ -44,6 +44,12 @@ class PluginArtefactInternal extends PluginArtefact {
         );
     }
 
+    public static function get_shareable_types() {
+        return array(
+            'html' => 'notes',
+        );
+    }
+
     public static function get_profile_artefact_types() {
         return array(
             'firstname',

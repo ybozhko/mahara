@@ -31,6 +31,7 @@ if ($blog->get('locked')) {
     throw new AccessDeniedException(get_string('submittedforassessment', 'view'));
 }
 
+$artefactname = get_string('blog', 'artefact.blog');
 
 $form = pieform(array(
     'name' => 'editblog',
@@ -70,6 +71,13 @@ $form = pieform(array(
             'title'        => get_string('tags'),
             'description'  => get_string('tagsdescprofile'),
             'help' => true,
+        ),
+        'accesslist'  => array(
+            'type'         => 'autocomplete',
+            'title'        => get_string('sharewith'),
+            'defaultvalue' => $blog->get('accesslist'),
+            'description'  => get_string('sharewithdesc', 'mahara', $artefactname),
+            'ajax'         => 'artefact/access.json.php'
         ),
         'license' => license_form_el_basic($blog),
         'licensing_advanced' => license_form_el_advanced($blog),

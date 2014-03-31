@@ -22,7 +22,14 @@ class PluginArtefactBlog extends PluginArtefact {
             'blogpost',
         );
     }
-    
+
+    public static function get_shareable_types() {
+        return array(
+            'blog' => 'blog',
+            'blogpost' => 'blog',
+        );
+    }
+
     public static function get_block_types() {
         return array();
     }
@@ -216,9 +223,12 @@ class ArtefactTypeBlog extends ArtefactType {
 
         $template = 'artefact:blog:viewposts.tpl';
 
-        $baseurl = get_config('wwwroot') . 'view/artefact.php?artefact=' . $this->id;
         if (!empty($options['viewid'])) {
+            $baseurl = get_config('wwwroot') . 'view/artefact.php?artefact=' . $this->id;
             $baseurl .= '&view=' . $options['viewid'];
+        }
+        else {
+            $baseurl = get_config('wwwroot') . 'artefact/artefact.php?artefact=' . $this->id;
         }
         $pagination = array(
             'baseurl' => $baseurl,
@@ -334,6 +344,7 @@ class ArtefactTypeBlog extends ArtefactType {
         $artefact->set('description', $values['description']);
         $artefact->set('owner', $user->get('id'));
         $artefact->set('tags', $values['tags']);
+        $artefact->set('accesslist', $values['accesslist']);
         if (get_config('licensemetadata')) {
             $artefact->set('license', $values['license']);
             $artefact->set('licensor', $values['licensor']);
@@ -361,6 +372,7 @@ class ArtefactTypeBlog extends ArtefactType {
         $artefact->set('title', $values['title']);
         $artefact->set('description', $values['description']);
         $artefact->set('tags', $values['tags']);
+        $artefact->set('accesslist', $values['accesslist']);
         if (get_config('licensemetadata')) {
             $artefact->set('license', $values['license']);
             $artefact->set('licensor', $values['licensor']);
@@ -847,6 +859,7 @@ class ArtefactTypeBlogPost extends ArtefactType {
         $artefact->set('published', $values['published']);
         $artefact->set('owner', $user->get('id'));
         $artefact->set('parent', $values['parent']);
+        $artefact->set('accesslist', $values['accesslist']);
         $artefact->commit();
         return true;
     }
@@ -867,6 +880,7 @@ class ArtefactTypeBlogPost extends ArtefactType {
         $artefact->set('description', $values['description']);
         $artefact->set('published', $values['published']);
         $artefact->set('tags', $values['tags']);
+        $artefact->set('accesslist', $values['accesslist']);
         if (get_config('licensemetadata')) {
             $artefact->set('license', $values['license']);
             $artefact->set('licensor', $values['licensor']);
@@ -1047,4 +1061,5 @@ class ArtefactTypeBlogPost extends ArtefactType {
     public static function is_countable_progressbar() {
         return true;
     }
+
 }

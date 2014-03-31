@@ -699,6 +699,7 @@ $string['Artefact'] = 'Artefact';
 $string['Artefacts'] = 'Artefacts';
 $string['artefactnotfound'] = 'Artefact with id %s not found';
 $string['artefactnotrendered'] = 'Artefact not rendered';
+$string['noartefacts'] = 'No artefacts yet.';
 $string['nodeletepermission'] = 'You do not have permission to delete this artefact.';
 $string['noeditpermission'] = 'You do not have permission to edit this artefact.';
 $string['cantbedeleted'] = 'This artefact cannot be deleted because it and/or its sub artefacts are in submitted pages.';
@@ -712,6 +713,10 @@ $string['belongingto'] = 'Belonging to';
 $string['allusers'] = 'All users';
 $string['attachment'] = 'Attachment';
 $string['editaccess'] = 'Edit access';
+$string['sharewith'] = 'Share with';
+$string['sharewithdesc'] = 'Select who will be able to access and see this %s.';
+$string['sharewithhint'] = 'Start typing to search for users or groups';
+$string['searching'] = 'Searching...';
 
 // Upload manager
 $string['quarantinedirname'] = 'quarantine';

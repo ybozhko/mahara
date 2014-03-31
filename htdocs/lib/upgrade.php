@@ -516,6 +516,7 @@ function upgrade_plugin($upgrade) {
             throw new InstallationException("Artefact plugin $pcname must implement get_artefact_types and doesn't");
         }
         $types = call_static_method($pcname, 'get_artefact_types');
+        $shareable = call_static_method($pcname, 'get_shareable_types');
         $ph = array();
         if (is_array($types)) {
             foreach ($types as $type) {
@@ -524,6 +525,9 @@ function upgrade_plugin($upgrade) {
                     $t = new StdClass;
                     $t->name = $type;
                     $t->plugin = $pluginname;
+                    if (isset($shareable[$type])) {
+                        $t->shareable = $shareable[$type];
+                    }
                     insert_record('artefact_installed_type',$t);
                 }
             }

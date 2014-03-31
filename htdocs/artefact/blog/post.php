@@ -45,6 +45,7 @@ if (!$blogpost) {
     $title = '';
     $description = '';
     $tags = array($tagselect);
+    $accesslist = null;
     $checked = '';
     $pagetitle = get_string('newblogpost', 'artefact.blog', get_field('artefact', 'title', 'id', $blog));
     $focuselement = 'title';
@@ -61,6 +62,7 @@ else {
     $title = $blogpostobj->get('title');
     $description = $blogpostobj->get('description');
     $tags = $blogpostobj->get('tags');
+    $accesslist = $blogpostobj->get('accesslist');
     $checked = !$blogpostobj->get('published');
     $pagetitle = get_string('editblogpost', 'artefact.blog');
     $focuselement = 'description'; // Doesn't seem to work with tinyMCE.
@@ -75,6 +77,7 @@ if ($file = param_integer('file', 0)) {
     $highlight = array($file);
 }
 
+$artefactname = get_string('post', 'artefact.blog');
 
 $form = pieform(array(
     'name'               => 'editpost',
@@ -122,6 +125,13 @@ $form = pieform(array(
             'title'        => get_string('tags'),
             'description'  => get_string('tagsdesc'),
             'help' => true,
+        ),
+        'accesslist'  => array(
+            'type'         => 'autocomplete',
+            'title'        => get_string('sharewith'),
+            'defaultvalue' => $accesslist,
+            'description'  => get_string('sharewithdesc', 'mahara', $artefactname),
+            'ajax'         => 'artefact/access.json.php'
         ),
         'license' => license_form_el_basic(isset($blogpostobj) ? $blogpostobj : null),
         'licensing_advanced' => license_form_el_advanced(isset($blogpostobj) ? $blogpostobj : null),
@@ -277,6 +287,7 @@ function editpost_submit(Pieform $form, $values) {
     $postobj->set('title', $values['title']);
     $postobj->set('description', $values['description']);
     $postobj->set('tags', $values['tags']);
+    $postobj->set('accesslist', $values['accesslist']);
     if (get_config('licensemetadata')) {
         $postobj->set('license', $values['license']);
         $postobj->set('licensor', $values['licensor']);
